@@ -29,7 +29,7 @@ def reset_redis(key):
     redis_server().delete(f"{REDIS_PREFIX}-{key}")
 
 def redis_server():
-    return redis.Redis(host='localhost', port=6379, db=12)
+    return redis.from_url(os.environ.get("REDIS_URL"))
 
 def fetch():
     response = requests.get(API_URL)
