@@ -1,0 +1,4 @@
+pandas
+redis
+twilio
+dotenv-python
