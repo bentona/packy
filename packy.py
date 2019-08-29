@@ -80,7 +80,6 @@ def difference(a, b):
     return dict(filter(lambda item: item[1] > 0, counts.items()))
 
 def main():
-    reset_redis(APT)
     #import pdb; pdb.set_trace()
     current = current_counts(APT)
     new = my_summary()
