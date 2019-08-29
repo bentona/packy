@@ -7,8 +7,9 @@ import os
 
 from twilio.rest import Client as twilio
 
-from dotenv import load_dotenv
-load_dotenv(verbose=True)
+if not os.environ.get("PRODUCTION"):
+    from dotenv import load_dotenv
+    load_dotenv(verbose=True)
 
 REDIS_PREFIX = 'packages'
 APT = os.getenv('APT')
