@@ -23,7 +23,8 @@ def current_counts(key):
 
 def set_counts(key, counts):
     if not bool(counts):
-        return True
+        reset_redis(key)
+        return
     return redis_server().hmset(f"{REDIS_PREFIX}-{key}", counts)
 
 def reset_redis(key):
@@ -50,19 +51,17 @@ def package_summary(package_counts):
     grouped = df.groupby('vendor')['num'].apply(list).to_dict()
     return {k: int(v[0]) for k, v in grouped.items()}
 
-def my_summary():
-    mine = unit_packages(APT, fetch())
+def my_summary(all_packages):
+    mine = unit_packages(APT, all_packages)
     if mine is not None:
         return package_summary(mine)
     else:
         return {}
 
 def notify(id, additions):
-    message = f"New Packages: {additions}"
+    message = f"Hi, it's Charlie! You've got some new packages: {additions}"
     
-    # Your Account SID from twilio.com/console
     account_sid = os.getenv('TWILIO_SID')
-    # Your Auth Token from twilio.com/console
     auth_token  = os.getenv('TWILIO_TOKEN')
 
     client = twilio(account_sid, auth_token)
@@ -79,16 +78,25 @@ def difference(a, b):
     counts = { k: a[k] - b.get(k, 0) for k,v in a.items() }
     return dict(filter(lambda item: item[1] > 0, counts.items()))
 
+def real_response(response):
+    return isinstance(response, dict) and ('packages' in response) and len(response['packages']) > 0
+
 def main():
-    #import pdb; pdb.set_trace()
     current = current_counts(APT)
-    new = my_summary()
+    all_packages = fetch()
+    
+    if not real_response(all_packages):
+        print("API probably down")
+        return
+    
+    new = my_summary(all_packages)
     set_counts(APT, new)
     additions = difference(new, current)
 
     if bool(additions):
         notify(APT, additions)
-    print(my_summary())
+    
+    print(new)
 
 # import pdb; pdb.set_trace()
 
