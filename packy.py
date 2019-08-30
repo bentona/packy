@@ -15,11 +15,11 @@ REDIS_PREFIX = 'packages'
 APT = os.getenv('APT')
 API_URL = os.getenv('API_URL')
 
-def current_counts(key):
-    current_bytes = redis_server().hgetall(f"{REDIS_PREFIX}-{key}")
-    if not bool(current_bytes):
+def stored_counts(key):
+    stored_bytes = redis_server().hgetall(f"{REDIS_PREFIX}-{key}")
+    if not bool(stored_bytes):
         return {}
-    return { key.decode(): int(val.decode()) for (key, val) in current_bytes.items() }
+    return { key.decode(): int(val.decode()) for (key, val) in stored_bytes.items() }
 
 def set_counts(key, counts):
     if not bool(counts):
@@ -58,21 +58,27 @@ def my_summary(all_packages):
     else:
         return {}
 
-def notify(id, additions):
-    message = f"Hi, it's Charlie! You've got some new packages: {additions}"
-    
+def notify(id, additions, counts):
+    body = f"Hi, it's Charlie!\n\nYou've got new packages:\n{additions}\n\nAll packages waiting:\n{counts}"
+    send_notifications(body)
+
+def send_notifications(body):
+    to_numbers = os.getenv('TWILIO_TO').split(',')
+    for number in to_numbers:
+        send_message(number, body)
+
+def send_message(to, body):
     account_sid = os.getenv('TWILIO_SID')
     auth_token  = os.getenv('TWILIO_TOKEN')
 
     client = twilio(account_sid, auth_token)
 
     message = client.messages.create(
-        to=os.getenv('TWILIO_TO'), 
+        to=to, 
         from_=os.getenv('TWILIO_FROM'),
-        body=message)
-    
-    print(f"Notified: {message.sid}")
+        body=body)
 
+    print(f"Notified: {message.sid}")
 
 def difference(a, b):
     counts = { k: a[k] - b.get(k, 0) for k,v in a.items() }
@@ -82,21 +88,21 @@ def real_response(response):
     return isinstance(response, dict) and ('packages' in response) and len(response['packages']) > 0
 
 def main():
-    current = current_counts(APT)
+    previous_counts = stored_counts(APT)
     all_packages = fetch()
     
     if not real_response(all_packages):
         print("API probably down")
         return
     
-    new = my_summary(all_packages)
-    set_counts(APT, new)
-    additions = difference(new, current)
+    current_counts = my_summary(all_packages)
+    set_counts(APT, current_counts)
+    additions = difference(current_counts, previous_counts)
 
     if bool(additions):
-        notify(APT, additions)
+        notify(APT, additions, current_counts)
     
-    print(new)
+    print(additions, current_counts)
 
 # import pdb; pdb.set_trace()
 
